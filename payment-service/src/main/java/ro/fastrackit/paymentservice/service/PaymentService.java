@@ -34,10 +34,11 @@ public class PaymentService {
                 .map(repository::save);
     }
 
-    public Optional<PaymentEntity> updateStatus(String id, PaymentEntity newEntity) {
+    public Optional<PaymentEntity> updateStatus(final String id, final PaymentEntity newEntity) {
         return repository.findById(id)
                 .map(dbEntity -> dbEntity.withStatus(newEntity.status()));
     }
+
     private PaymentEntity applyPatch(PaymentEntity dbEntity, JsonPatch jsonPatch) {
         try {
             ObjectMapper jsonMapper = new ObjectMapper();

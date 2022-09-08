@@ -15,8 +15,13 @@ import page.PageInfo;
 import ro.fastrackit.paymentservice.exception.custom.ResourceNotFoundException;
 import ro.fastrackit.paymentservice.model.entity.PaymentEntity;
 import ro.fastrackit.paymentservice.model.mapper.PaymentMapper;
+import ro.fastrackit.paymentservice.queue.MessagePublisher;
 import ro.fastrackit.paymentservice.service.PaymentService;
 import ro.fasttrackit.payments.client.dto.Payment;
+import ro.fasttrackit.payments.client.event.PaymentEvent;
+import ro.fasttrackit.payments.client.event.PaymentStatus;
+
+import java.util.Optional;
 
 @RestController
 @RequiredArgsConstructor
@@ -24,6 +29,7 @@ import ro.fasttrackit.payments.client.dto.Payment;
 public class PaymentController {
     private final PaymentService service;
     private final PaymentMapper mapper;
+    private final MessagePublisher publisher;
 
     @GetMapping
     public CollectionResponse<Payment> getPayments(Pageable pageable) {
@@ -44,6 +50,24 @@ public class PaymentController {
         final PaymentEntity paymentEntity = service
                 .patchPayment(id, jsonPatch)
                 .orElseThrow(() -> ResourceNotFoundException.forEntity(Payment.class, id));
+
+        checkStatus(paymentEntity);
+
         return mapper.toApi(paymentEntity);
     }
+
+    private void checkStatus(final PaymentEntity entity) {
+        Optional.of(entity)
+                .filter(paymentEntity -> PaymentStatus.DONE.equals(paymentEntity.status()))
+                .ifPresent(this::emitsFinalizedPaymentEvent);
+    }
+
+
+    private void emitsFinalizedPaymentEvent(final PaymentEntity paymentEntity) {
+        publisher.publishFinalizedPaymentFanout(PaymentEvent.builder()
+                .payment(mapper.toApi(paymentEntity))
+                .status(paymentEntity.status())
+                .build());
+    }
+
 }
