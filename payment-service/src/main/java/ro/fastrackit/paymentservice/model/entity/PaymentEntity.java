@@ -1,5 +1,6 @@
 package ro.fastrackit.paymentservice.model.entity;
 
+import lombok.With;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -8,6 +9,7 @@ import ro.fasttrackit.payments.client.event.PaymentStatus;
 
 import java.time.LocalDateTime;
 
+@With
 @Document(collection = "payments")
 public record PaymentEntity(
         @Id

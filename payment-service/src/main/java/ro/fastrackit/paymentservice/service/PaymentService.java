@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
+import ro.fastrackit.paymentservice.exception.custom.PatchException;
 import ro.fastrackit.paymentservice.model.entity.PaymentEntity;
 import ro.fastrackit.paymentservice.model.mapper.PaymentMapper;
 import ro.fastrackit.paymentservice.repository.PaymentRepository;
@@ -28,23 +29,14 @@ public class PaymentService {
 
     public Optional<PaymentEntity> patchPayment(final String id, final JsonPatch jsonPatch) {
         return repository.findById(id)
-                .map(dbEntity ->  applyPatch(dbEntity, jsonPatch))
-                .map(dbEntity -> replaceEntity(id, dbEntity))
-                .orElse(null);
-
+                .map(entity -> applyPatch(entity, jsonPatch))
+                .flatMap(entity -> updateStatus(id, entity))
+                .map(repository::save);
     }
 
-    public PaymentEntity replaceEntity(String id, PaymentEntity newEntity) {
-        PaymentEntity dbEntity = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Could not find person with id %s".formatted(id)));
-//        return repository.save(dbEntity.toBuilder()
-//                .age(newEntity.getAge())
-//                .name(newEntity.getName())
-//                .build());
-
-        return repository.save(dbEntity
-                .withNewName(newEntity.getNewName())
-                .withAge(newEntity.getAge()));
+    public Optional<PaymentEntity> updateStatus(String id, PaymentEntity newEntity) {
+        return repository.findById(id)
+                .map(dbEntity -> dbEntity.withStatus(newEntity.status()));
     }
     private PaymentEntity applyPatch(PaymentEntity dbEntity, JsonPatch jsonPatch) {
         try {
@@ -53,9 +45,7 @@ public class PaymentService {
             JsonNode patchedJson = jsonPatch.apply(jsonNode);
             return mapper.toEntity(jsonMapper.treeToValue(patchedJson, Payment.class));
         } catch (JsonProcessingException | JsonPatchException e) {
-            throw new RuntimeException(e);
+            throw new PatchException(e.getMessage());
         }
     }
-
-
 }
